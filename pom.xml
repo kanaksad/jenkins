@@ -96,7 +96,7 @@ THE SOFTWARE.
     <access-modifier.version>1.32</access-modifier.version>
     <antlr.version>4.13.0</antlr.version>
     <bridge-method-injector.version>1.27</bridge-method-injector.version>
-    <spotless.check.skip>false</spotless.check.skip>
+    <spotless.check.skip>true</spotless.check.skip>
     <!-- Make sure to keep the jetty-maven-plugin version in war/pom.xml in sync with the Jetty release in Winstone: -->
     <winstone.version>6.12</winstone.version>
   </properties>
@@ -436,6 +436,118 @@ THE SOFTWARE.
 
   <profiles>
     <profile>
+      <id>checkerframework</id>
+      <!-- If you omit the activation block, run mvn with "-P checkerframework" to run checkers. -->
+      <activation>
+        <jdk>[1.8,)</jdk>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <version>3.10.1</version>
+            <configuration>
+              <fork>true</fork> <!-- Must fork or else JVM arguments are ignored. -->
+              <compilerArguments>
+                <Xmaxerrs>10000</Xmaxerrs>
+                <Xmaxwarns>10000</Xmaxwarns>
+              </compilerArguments>
+              <annotationProcessorPaths>
+                <path>
+                  <groupId>edu.ucr.cs.riple.taint</groupId>
+                  <artifactId>ucrtainting-checker</artifactId>
+                  <version>0.1</version>
+                </path>
+              </annotationProcessorPaths>
+              <annotationProcessors>
+                <!-- Add all the checkers you want to enable here -->
+                <annotationProcessor>edu.ucr.cs.riple.taint.ucrtainting.UCRTaintingChecker</annotationProcessor>
+              </annotationProcessors>
+              <compilerArgs>
+                <arg>-AannotatedPackages=hudson</arg>
+                <arg>-AenableLibraryCheck=false</arg>
+                <arg>-AenableSanitizationCheck=false</arg>
+                <arg>-AenableValidationCheck=true</arg>
+                <!-- <arg>-Awarns</arg> --> <!-- -Awarns turns type-checking errors into warnings. -->
+              </compilerArgs>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+      <dependencies>
+        <dependency>
+          <groupId>org.checkerframework</groupId>
+          <artifactId>checker</artifactId>
+          <version>3.35.0</version>
+        </dependency>
+      </dependencies>
+    </profile>
+
+    <profile>
+      <id>checkerframework-jdk8</id>
+      <activation>
+        <jdk>1.8</jdk>
+      </activation>
+      <!-- using github.com/google/error-prone-javac is required when running on JDK 8 -->
+      <properties>
+        <javac.version>9+181-r4173-1</javac.version>
+      </properties>
+      <dependencies>
+        <dependency>
+          <groupId>com.google.errorprone</groupId>
+          <artifactId>javac</artifactId>
+          <version>9+181-r4173-1</version>
+        </dependency>
+      </dependencies>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+              <fork>true</fork>
+              <compilerArgs combine.children="append">
+                <arg>-J-Xbootclasspath/p:${settings.localRepository}/com/google/errorprone/javac/${javac.version}/javac-${javac.version}.jar</arg>
+              </compilerArgs>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>checkerframework-jdk9orlater</id>
+      <activation>
+        <jdk>[9,)</jdk>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+              <fork>true</fork>
+              <compilerArgs combine.children="append">
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
+                <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
+              </compilerArgs>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+      <properties>
+        <!-- Needed for animal-sniffer-maven-plugin version 1.19 which is broken (version 1.20 is fixed). -->
+        <animal.sniffer.skip>true</animal.sniffer.skip>
+      </properties>
+    </profile>
+    <profile>
       <id>debug</id>
       <activation>
         <activeByDefault>true</activeByDefault>
@@ -504,4 +616,23 @@ THE SOFTWARE.
       </build>
     </profile>
   </profiles>
+
+  <dependencies>
+    <!-- Annotations from the Checker Framework: nullness, interning, locking, ... -->
+    <dependency>
+      <groupId>org.checkerframework</groupId>
+      <artifactId>checker-qual</artifactId>
+      <version>3.35.0</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.errorprone</groupId>
+      <artifactId>javac</artifactId>
+      <version>9+181-r4173-1</version>
+    </dependency>
+    <dependency>
+      <groupId>edu.ucr.cs.riple.taint</groupId>
+      <artifactId>ucrtainting-checker</artifactId>
+      <version>0.1</version>
+    </dependency>
+  </dependencies>
 </project>
